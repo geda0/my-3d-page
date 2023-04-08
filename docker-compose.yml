@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  react_app:
+    build: .
+    image: your-image-name
+    ports:
+      - '8080:80'
+    restart: always
