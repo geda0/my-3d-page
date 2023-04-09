@@ -1,11 +1,12 @@
-make ir first person view. create a big room and keep me from being able to cross the walls, ceiling, or floors, which are all painted different suble colors.
-add objects in the room and make it feel like reality
-let me start in the middle of it and add vanigation options.
+Create My World
+
+create components for low poly objects and charactes.
 
 here is a good starting point: use docker and docker-compose:
 
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import "./App.css";
 
 const App = () => {
@@ -19,19 +20,41 @@ const App = () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
 
-    const geometry = new THREE.BoxGeometry();
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+    // Room
+    const roomSize = 10;
+    const roomMaterial = [
+      new THREE.MeshBasicMaterial({ color: 0xff0000 }), // -X
+      new THREE.MeshBasicMaterial({ color: 0x00ff00 }), // +X
+      new THREE.MeshBasicMaterial({ color: 0x0000ff }), // -Y
+      new THREE.MeshBasicMaterial({ color: 0xffff00 }), // +Y
+      new THREE.MeshBasicMaterial({ color: 0xff00ff }), // -Z
+      new THREE.MeshBasicMaterial({ color: 0x00ffff }), // +Z
+    ];
+    const room = new THREE.Mesh(new THREE.BoxGeometry(roomSize, roomSize, roomSize), roomMaterial);
+    room.geometry.scale(1, 1, -1); // Invert the room
+    scene.add(room);
 
-    camera.position.z = 5;
+    // Objects in the room
+    const objectMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const objectGeometry = new THREE.SphereGeometry(0.5);
+    const object = new THREE.Mesh(objectGeometry, objectMaterial);
+    object.position.set(2, 0, 2);
+    scene.add(object);
+
+    // First-person perspective camera
+    camera.position.set(0, 0, 0);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, -1);
+    controls.enablePan = false;
+    controls.enableZoom = false;
+    controls.enableDamping = true;
+    controls.minPolarAngle = Math.PI / 6;
+    controls.maxPolarAngle = 5 * Math.PI / 6;
+    controls.update();
 
     const animate = () => {
       requestAnimationFrame(animate);
-
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
-
+      controls.update();
       renderer.render(scene, camera);
     };
 
@@ -43,7 +66,14 @@ const App = () => {
 
 export default App;
 
+
 body {
-    margin: 0;
-    overflow: hidden;
-  }
+  margin: 0;
+  overflow: hidden;
+}
+
+.container {
+  width: 100%;
+  height: 100vh;
+  position: absolute;
+}
