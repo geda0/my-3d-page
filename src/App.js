@@ -45,7 +45,7 @@ const createLowPolySun = () => {
   const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
   const sunGeometry = new THREE.SphereGeometry(2, 16, 16);
   const sun = new THREE.Mesh(sunGeometry, sunMaterial);
-  sun.position.set(40, 60, 20);
+  sun.position.set(100, 100, 100);
   return sun;
 };
 
@@ -131,7 +131,8 @@ const App = () => {
     scene.add(directionalLight);
 
     // Ground plane
-    const spread = 1000;
+    const spread = 2000;
+    const skyboxSize = 2000;
     const groundGeometry = new THREE.PlaneGeometry(spread, spread);
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -175,22 +176,22 @@ const App = () => {
     // Camera setup
     const character = leader;
     camera.position.copy(character.position);
-    camera.position.y += 15; // Set camera height above the character
-    camera.lookAt(character.position.x, character.position.y + 5, character.position.z); // Look at the character's head
-    camera.position.x += 10; // Move camera behind the character
-    camera.position.z += 10;  // Move camera behind the character
+    camera.position.y += 50; // Set camera height above the character
+    camera.position.z += 100; // Set initial distance from the character
+    camera.lookAt(character.position.x, character.position.y + 5, character.position.z); // Look at the character's head    
 
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.set(0, 0, 0);
 
-    // controls.enableDamping = true; // Animates the camera movement
-    // controls.screenSpacePanning = true; // Enable panning in screen space
-    // controls.minDistance = 50;
-    // controls.maxDistance = 200;
-    // controls.minPolarAngle = Math.PI / 4;
-    // controls.maxPolarAngle = Math.PI / 2;
-    // controls.target.copy(character.position);
+    controls.minDistance = 50;
+    controls.maxDistance = 200;
+    controls.minPolarAngle = Math.PI / 4;
+    controls.maxPolarAngle = Math.PI / 2;
+    controls.minAzimuthAngle = -Math.PI / 4; // Limit horizontal rotation
+    controls.maxAzimuthAngle = Math.PI / 4; // Limit horizontal rotation
+    controls.enablePan = false; // Disable panning
+
     controls.update();
 
     const skyboxMaterial = new THREE.MeshBasicMaterial({
@@ -199,11 +200,26 @@ const App = () => {
     });
     // Skybox
     const createSkybox = () => {
-      const skyboxSize = 50000;
+      const skyboxUrls = [
+        "textures/skybox/px.jpg",
+        "textures/skybox/nx.jpg",
+        "textures/skybox/py.jpg",
+        "textures/skybox/ny.jpg",
+        "textures/skybox/pz.jpg",
+        "textures/skybox/nz.jpg",
+      ];
+
+      const skyboxTexture = new THREE.CubeTextureLoader().load(skyboxUrls);
+      const skyboxMaterial = new THREE.MeshBasicMaterial({
+        map: skyboxTexture,
+        side: THREE.BackSide,
+      });
+
       const skyboxGeometry = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
       const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
       return skybox;
     };
+
     scene.add(createSkybox());
 
     // Water
@@ -241,31 +257,58 @@ const App = () => {
     let dayTime = 0;
 
     const updateDayNightCycle = () => {
-      dayTime += 0.001;
-      const intensity = (Math.sin(dayTime * 2 * Math.PI) + 1) / 2;
-      directionalLight.intensity = intensity;
+      dayTime += 0.01;
+      const intensity = Math.sin(dayTime);
+      directionalLight.intensity = Math.max(0.2, intensity); // Set a minimum intensity for the sun
       ambientLight.intensity = 0.5 * (1 - intensity);
-      skyboxMaterial.color.setHSL(0.6, 1, 0.6 + 0.4 * intensity);
-    };    
+    };
 
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
 
-      // Animate trees
+      // Animate clouds
       scene.traverse((child) => {
-
-        if (child.type === "Group" && child.children.length === 2) {
-          // Add your tree animation logic here
+        if (child.type === "Mesh" && child.geometry.type === "BoxGeometry" && child.material.color.getHex() === 0xffffff) {
+          child.position.x += 0.1; // Move cloud horizontally
+          if (child.position.x > spread / 2) {
+            child.position.x = -spread / 2; // Reset cloud position when it goes out of bounds
+          }
         }
       });
+
+      // Animate sun and moon
+      scene.traverse((child) => {
+        if (child.type === "Mesh" && child.geometry.type === "SphereGeometry") {
+          const isSun = child.material.color.getHex() === 0xffdd00;
+          const isMoon = child.material.color.getHex() === 0xbfbfbf;
+          if (isSun || isMoon) {
+            const radius = 60;
+            const angle = dayTime * 2 * Math.PI + (isSun ? 0 : Math.PI);
+            child.position.set(Math.cos(angle) * radius, radius, Math.sin(angle) * radius);
+          }
+        }
+      });
+
+
+      // Animate trees
+      scene.traverse((child) => {
+        if (child.type === "Group" && child.children.length === 2 && child.children[0].material.color.getHex() === 0x8B4513) {
+          child.rotation.y += 0.01; // Rotate the tree around the Y-axis
+          child.children[1].position.y += 0.005 * Math.sin(dayTime * 2 * Math.PI); // Move leaves up and down
+        }
+      });
+
 
       // Animate characters
       scene.traverse((child) => {
-        if (child.type === "Group" && child.children.length === 2) {
-          // Add your character animation logic here
+        if (child.type === "Group" && child.children.length === 2 && child.children[0].material.color.getHex() === 0xffd700) {
+          child.rotation.y += 0.01; // Rotate the character around the Y-axis
+          child.children[1].position.y += 0.005 * Math.sin(dayTime * 2 * Math.PI); // Move head up and down
+          child.children[0].position.y += 0.005 * Math.sin(dayTime * 2 * Math.PI); // Move body up and down
         }
       });
+
 
       // Day-night cycle
       dayTime += 0.001;
