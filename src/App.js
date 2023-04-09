@@ -1,18 +1,26 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { Water } from "three/examples/jsm/objects/Water";
-import { TextureLoader } from "three";
-import { Howl } from "howler";
 import "./App.css";
 
+const raycaster = new THREE.Raycaster();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+const createTargetHelper = () => {
+  const targetGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+  const targetMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+  const targetHelper = new THREE.Mesh(targetGeometry, targetMaterial);
+  targetHelper.visible = false;
+  return targetHelper;
+};
+
 const createLowPolyTree = () => {
-  const trunkMaterial = new THREE.MeshBasicMaterial({ color: 0x8B4513 });
+  const trunkMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
   const trunkGeometry = new THREE.CylinderGeometry(0.25, 0.25, 1);
   const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
   trunk.position.setY(0.5);
 
-  const leavesMaterial = new THREE.MeshBasicMaterial({ color: 0x228B22 });
+  const leavesMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
   const leavesGeometry = new THREE.ConeGeometry(1, 2, 4);
   const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
   leaves.position.setY(2);
@@ -24,12 +32,12 @@ const createLowPolyTree = () => {
 };
 
 const createLowPolyCharacter = () => {
-  const bodyMaterial = new THREE.MeshBasicMaterial({ color: 0xffd700 });
+  const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0xffd700 });
   const bodyGeometry = new THREE.BoxGeometry(1, 1, 1);
   const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
   body.position.setY(1);
 
-  const headMaterial = new THREE.MeshBasicMaterial({ color: 0xf08080 });
+  const headMaterial = new THREE.MeshLambertMaterial({ color: 0xf08080 });
   const headGeometry = new THREE.BoxGeometry(0.75, 0.75, 0.75);
   const head = new THREE.Mesh(headGeometry, headMaterial);
   head.position.setY(2.25);
@@ -40,7 +48,6 @@ const createLowPolyCharacter = () => {
   return character;
 };
 
-
 const createLowPolySun = () => {
   const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
   const sunGeometry = new THREE.SphereGeometry(2, 16, 16);
@@ -50,7 +57,7 @@ const createLowPolySun = () => {
 };
 
 const createLowPolyMoon = () => {
-  const moonMaterial = new THREE.MeshBasicMaterial({ color: 0xbfbfbf });
+  const moonMaterial = new THREE.MeshLambertMaterial({ color: 0xbfbfbf });
   const moonGeometry = new THREE.SphereGeometry(1, 16, 16);
   const moon = new THREE.Mesh(moonGeometry, moonMaterial);
   moon.position.set(-40, 60, 20);
@@ -58,7 +65,7 @@ const createLowPolyMoon = () => {
 };
 
 const createLowPolyCloud = () => {
-  const cloudMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const cloudMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
   const cloudGeometry = new THREE.BoxGeometry(10, 5, 5);
   const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
   cloud.position.set(0, 30, 0);
@@ -117,22 +124,33 @@ const App = () => {
     const near = 1;
     const far = 1000;
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
-    camera.position.set(75, 50, 0);
 
-    const renderer = new THREE.WebGLRenderer();
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
+
+    const targetHelper = createTargetHelper();
+    scene.add(targetHelper);
 
     // Lighting
     const ambientLight = new THREE.AmbientLight(0x404040);
     scene.add(ambientLight);
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
     directionalLight.position.set(1, 1, 1);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.camera.left = -200;
+    directionalLight.shadow.camera.right = 200;
+    directionalLight.shadow.camera.top = 200;
+    directionalLight.shadow.camera.bottom = -200;
+    directionalLight.shadow.camera.near = 0.5;
+    directionalLight.shadow.camera.far = 1000;
+    directionalLight.shadow.mapSize.set(2048, 2048);
     scene.add(directionalLight);
 
     // Ground plane
     const spread = 2000;
-    const skyboxSize = 2000;
     const groundGeometry = new THREE.PlaneGeometry(spread, spread);
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -178,81 +196,19 @@ const App = () => {
     camera.position.copy(character.position);
     camera.position.y += 50; // Set camera height above the character
     camera.position.z += 100; // Set initial distance from the character
-    camera.lookAt(character.position.x, character.position.y + 5, character.position.z); // Look at the character's head    
-
+    camera.lookAt(character.position.x, character.position.y + 5, character.position.z); // Look at the character's head
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 0, 0);
+    controls.target.copy(character.position);
+    controls.target.y += 5; // Adjust the height of the target to the character's head
 
     controls.minDistance = 50;
     controls.maxDistance = 200;
     controls.minPolarAngle = Math.PI / 4;
     controls.maxPolarAngle = Math.PI / 2;
-    controls.minAzimuthAngle = -Math.PI / 4; // Limit horizontal rotation
-    controls.maxAzimuthAngle = Math.PI / 4; // Limit horizontal rotation
-    controls.enablePan = false; // Disable panning
-
-    controls.update();
-
-    const skyboxMaterial = new THREE.MeshBasicMaterial({
-      color: 0x87ceeb,
-      side: THREE.BackSide,
-    });
-    // Skybox
-    const createSkybox = () => {
-      const skyboxUrls = [
-        "textures/skybox/px.jpg",
-        "textures/skybox/nx.jpg",
-        "textures/skybox/py.jpg",
-        "textures/skybox/ny.jpg",
-        "textures/skybox/pz.jpg",
-        "textures/skybox/nz.jpg",
-      ];
-
-      const skyboxTexture = new THREE.CubeTextureLoader().load(skyboxUrls);
-      const skyboxMaterial = new THREE.MeshBasicMaterial({
-        map: skyboxTexture,
-        side: THREE.BackSide,
-      });
-
-      const skyboxGeometry = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
-      const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
-      return skybox;
-    };
-
-    scene.add(createSkybox());
-
-    // Water
-    const createWater = () => {
-      const waterGeometry = new THREE.PlaneGeometry(1000, 1000);
-      const water = new Water(waterGeometry, {
-        textureWidth: 512,
-        textureHeight: 512,
-        waterNormals: new TextureLoader().load("textures/water.jpg", (texture) => {
-          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-          texture.repeat.set(4, 4);
-        }),
-        sunDirection: directionalLight.position.clone().normalize(),
-        sunColor: 0xffffff,
-        waterColor: 0x001e0f,
-        distortionScale: 3.7,
-        fog: scene.fog !== undefined,
-      });
-
-      water.rotation.x = -Math.PI / 2;
-      water.position.y = 5; // Adjust this value to set the water level
-      return water;
-    };
-
-    scene.add(createWater());
-
-    // Ambient sound
-    const ambientSound = new Howl({
-      src: ["path/to/ambient_sound.mp3"],
-      autoplay: true,
-      loop: true,
-      volume: 0.5,
-    });
+    const clock = new THREE.Clock();
+    let prevTime = 0;
+    let timeAccumulator = 0;
 
     let dayTime = 0;
 
@@ -262,66 +218,43 @@ const App = () => {
       directionalLight.intensity = Math.max(0.2, intensity); // Set a minimum intensity for the sun
       ambientLight.intensity = 0.5 * (1 - intensity);
     };
-
     const animate = () => {
       requestAnimationFrame(animate);
-      controls.update();
 
-      // Animate clouds
-      scene.traverse((child) => {
-        if (child.type === "Mesh" && child.geometry.type === "BoxGeometry" && child.material.color.getHex() === 0xffffff) {
-          child.position.x += 0.1; // Move cloud horizontally
-          if (child.position.x > spread / 2) {
-            child.position.x = -spread / 2; // Reset cloud position when it goes out of bounds
+      const currTime = clock.getElapsedTime();
+      const deltaTime = currTime - prevTime;
+      prevTime = currTime;
+      timeAccumulator += deltaTime;
+
+      if (timeAccumulator > 0.02) {
+        // Animation and control updates
+        scene.traverse((child) => {
+          if (child.isMesh) {
+            child.geometry.computeBoundingBox();
           }
-        }
-      });
+        });
 
-      // Animate sun and moon
-      scene.traverse((child) => {
-        if (child.type === "Mesh" && child.geometry.type === "SphereGeometry") {
-          const isSun = child.material.color.getHex() === 0xffdd00;
-          const isMoon = child.material.color.getHex() === 0xbfbfbf;
-          if (isSun || isMoon) {
-            const radius = 60;
-            const angle = dayTime * 2 * Math.PI + (isSun ? 0 : Math.PI);
-            child.position.set(Math.cos(angle) * radius, radius, Math.sin(angle) * radius);
-          }
-        }
-      });
+        // Update day-night cycle
+        updateDayNightCycle();
 
+        // Camera update
+        controls.update();
 
-      // Animate trees
-      scene.traverse((child) => {
-        if (child.type === "Group" && child.children.length === 2 && child.children[0].material.color.getHex() === 0x8B4513) {
-          child.rotation.y += 0.01; // Rotate the tree around the Y-axis
-          child.children[1].position.y += 0.005 * Math.sin(dayTime * 2 * Math.PI); // Move leaves up and down
-        }
-      });
+        timeAccumulator = 0;
+      }
 
-
-      // Animate characters
-      scene.traverse((child) => {
-        if (child.type === "Group" && child.children.length === 2 && child.children[0].material.color.getHex() === 0xffd700) {
-          child.rotation.y += 0.01; // Rotate the character around the Y-axis
-          child.children[1].position.y += 0.005 * Math.sin(dayTime * 2 * Math.PI); // Move head up and down
-          child.children[0].position.y += 0.005 * Math.sin(dayTime * 2 * Math.PI); // Move body up and down
-        }
-      });
-
-
-      // Day-night cycle
-      dayTime += 0.001;
-      if (dayTime >= 1) dayTime = 0;
-      updateDayNightCycle(scene, dayTime);
-
+      // Render the scene
       renderer.render(scene, camera);
     };
 
     animate();
+
+    return () => {
+      container.removeChild(renderer.domElement);
+    };
   }, []);
 
-  return <div ref={containerRef} className="container"></div>;
+  return <div ref={containerRef} className="App" />;
 };
 
 export default App;
