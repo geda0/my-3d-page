@@ -2,9 +2,25 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import "./App.css";
+import { Water } from 'three/examples/jsm/objects/Water';
+import { TextureLoader } from 'three';
 
 const raycaster = new THREE.Raycaster();
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+class Agent extends THREE.Object3D {
+  constructor() {
+    super();
+
+    this.velocity = new THREE.Vector3();
+    this.direction = new THREE.Vector3();
+  }
+
+  update(deltaTime) {
+    this.position.addScaledVector(this.velocity, deltaTime);
+    this.rotation.y += this.direction.y * deltaTime;
+  }
+}
 
 const createTargetHelper = () => {
   const targetGeometry = new THREE.SphereGeometry(0.5, 16, 16);
@@ -36,16 +52,17 @@ const createLowPolyCharacter = () => {
   const bodyGeometry = new THREE.BoxGeometry(1, 1, 1);
   const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
   body.position.setY(1);
+  const agent = new Agent();
+
 
   const headMaterial = new THREE.MeshLambertMaterial({ color: 0xf08080 });
   const headGeometry = new THREE.BoxGeometry(0.75, 0.75, 0.75);
   const head = new THREE.Mesh(headGeometry, headMaterial);
   head.position.setY(2.25);
 
-  const character = new THREE.Group();
-  character.add(body);
-  character.add(head);
-  return character;
+  agent.add(body);
+  agent.add(head);
+  return agent;
 };
 
 const createLowPolySun = () => {
@@ -72,20 +89,26 @@ const createLowPolyCloud = () => {
   return cloud;
 };
 
-const addRandomTrees = (scene, count) => {
+const randomPosition = (min, max) => {
+  const x = THREE.MathUtils.randFloat(min, max);
+  const z = THREE.MathUtils.randFloat(min, max);
+  return new THREE.Vector3(x, 0, z);
+};
+
+const addRandomTrees = (scene, count, spread) => {
   for (let i = 0; i < count; i++) {
     const tree = createLowPolyTree();
-    tree.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 50);
+    tree.position.copy(randomPosition(-spread / 2, spread / 2));
     tree.rotation.y = Math.random() * Math.PI * 2;
     scene.add(tree);
   }
 };
 
-const addRandomCharacters = (scene, count) => {
+const addRandomCharacters = (scene, count, spread) => {
   let leader;
   for (let i = 0; i < count; i++) {
     const character = createLowPolyCharacter();
-    character.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 50);
+    character.position.copy(randomPosition(-spread / 2, spread / 2));
     character.rotation.y = Math.random() * Math.PI * 2;
     scene.add(character);
     leader = leader || character;
@@ -117,6 +140,16 @@ const App = () => {
     const container = containerRef.current;
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87ceeb);
+
+    const lights = [];
+
+    for (let i = 0; i < 4; i++) {
+      const light = new THREE.PointLight(0xffffff, 1, 100);
+      light.position.set(Math.random() * 200 - 100, 5, Math.random() * 200 - 100);
+      lights.push(light);
+      scene.add(light);
+    }
+
 
     // Camera
     const fov = 60;
@@ -156,6 +189,33 @@ const App = () => {
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
+
+
+
+    // Water
+    const createWater = () => {
+      const waterGeometry = new THREE.PlaneGeometry(1000, 1000);
+      const water = new Water(waterGeometry, {
+        textureWidth: 512,
+        textureHeight: 512,
+        waterNormals: new TextureLoader().load("textures/water.jpg", (texture) => {
+          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+          texture.repeat.set(4, 4);
+        }),
+        sunDirection: directionalLight.position.clone().normalize(),
+        sunColor: 0xffffff,
+        waterColor: 0x001e0f,
+        distortionScale: 3.7,
+        fog: scene.fog !== undefined,
+      });
+
+      water.rotation.x = -Math.PI / 2;
+      water.position.y = 5; // Adjust this value to set the water level
+      return water;
+    };
+
+    scene.add(createWater());
+
 
     // Add trees, characters, sun, moon, clouds, buildings, and rocks
     addRandomTrees(scene, 1000, spread);
@@ -199,6 +259,7 @@ const App = () => {
     camera.lookAt(character.position.x, character.position.y + 5, character.position.z); // Look at the character's head
 
     const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enabled = false; // Disable OrbitControls to use the custom camera setup    
     controls.target.copy(character.position);
     controls.target.y += 5; // Adjust the height of the target to the character's head
 
@@ -218,6 +279,15 @@ const App = () => {
       directionalLight.intensity = Math.max(0.2, intensity); // Set a minimum intensity for the sun
       ambientLight.intensity = 0.5 * (1 - intensity);
     };
+
+    const updateCameraPosition = (camera, character) => {
+      const cameraOffset = new THREE.Vector3(0, 10, 20);
+      const cameraTarget = new THREE.Vector3(0, 5, 0);
+      const newPosition = character.position.clone().add(cameraOffset);
+      camera.position.lerp(newPosition, 0.1);
+      camera.lookAt(character.position.clone().add(cameraTarget));
+    };
+
     const animate = () => {
       requestAnimationFrame(animate);
 
@@ -237,8 +307,8 @@ const App = () => {
         // Update day-night cycle
         updateDayNightCycle();
 
-        // Camera update
-        controls.update();
+        // Update camera position
+        updateCameraPosition(camera, leader);
 
         timeAccumulator = 0;
       }
