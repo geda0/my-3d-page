@@ -259,7 +259,11 @@ const App = () => {
     camera.lookAt(character.position.x, character.position.y + 5, character.position.z); // Look at the character's head
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enabled = false; // Disable OrbitControls to use the custom camera setup    
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN,
+    };
     controls.target.copy(character.position);
     controls.target.y += 5; // Adjust the height of the target to the character's head
 
@@ -267,6 +271,7 @@ const App = () => {
     controls.maxDistance = 200;
     controls.minPolarAngle = Math.PI / 4;
     controls.maxPolarAngle = Math.PI / 2;
+    
     const clock = new THREE.Clock();
     let prevTime = 0;
     let timeAccumulator = 0;
@@ -308,7 +313,7 @@ const App = () => {
         updateDayNightCycle();
 
         // Update camera position
-        updateCameraPosition(camera, leader);
+        // updateCameraPosition(camera, leader);
 
         timeAccumulator = 0;
       }
