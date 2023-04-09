@@ -1,14 +1,27 @@
-Create My World
+The World
 
-Adjust the view to be like prespective of one of the characters.
-let the sun and the moon alternate going aroround the world to create a day-night simulation. with a slider I can adjust how fast things go.
+Help me make this a fun interactive place to be. let me see the characters from a closer prespective to make it feel like I am in the world.
 
-here is a good starting point:
+Add user interactions:
+ allow users to move the character using mouse or touch controls.
 
-import React, { useEffect, useRef } from "react";
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import "./App.css";
+Animate characters and trees:
+Add some animations to make the world feel more alive. You can animate the characters' arms and legs to simulate walking, or sway the trees gently to give an impression of wind.
+
+Add a skybox:
+A skybox can greatly enhance the appearance of your world. You can create a skybox using a large cube with six textures applied to its faces, representing the sky in different directions.
+
+Add more objects and environments:
+Create more diverse environments by adding various types of objects like buildings, rocks, water bodies, and more. This will make the world more interesting to explore.
+
+Add a day-night cycle:
+Implement a day-night cycle by changing the color and intensity of the lights and the skybox texture based on the time of day.
+
+Add sound effects:
+Adding ambient sounds like birds chirping, footsteps, or wind can increase the immersion and make the world feel more alive.
+
+Here is a good staring point:
+
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
@@ -73,25 +86,23 @@ const createLowPolyCloud = () => {
   return cloud;
 };
 
-const addRandomTrees = (scene, count) => {
+const addRandomTrees = (scene, count, spread) => {
   for (let i = 0; i < count; i++) {
     const tree = createLowPolyTree();
-    tree.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 50);
+    tree.position.set(Math.random() * spread - (spread / 2), 0, Math.random() * spread - (spread / 2));
     tree.rotation.y = Math.random() * Math.PI * 2;
     scene.add(tree);
   }
 };
 
-const addRandomCharacters = (scene, count) => {
+const addRandomCharacters = (scene, count, spread) => {
   for (let i = 0; i < count; i++) {
     const character = createLowPolyCharacter();
-    character.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 50);
+    character.position.set(Math.random() * spread - (spread / 2), 0, Math.random() * spread - (spread / 2));
     character.rotation.y = Math.random() * Math.PI * 2;
     scene.add(character);
   }
 };
-
-
 const App = () => {
   const containerRef = useRef();
 
@@ -102,7 +113,7 @@ const App = () => {
 
     // Camera
     const aspect = window.innerWidth / window.innerHeight;
-    const camera = new THREE.OrthographicCamera(-50 * aspect, 50 * aspect, 50, -50, 1, 2000);
+    const camera = new THREE.OrthographicCamera(-50 * aspect, 50 * aspect, 50, -50, 1, 200);
 
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -116,27 +127,38 @@ const App = () => {
     scene.add(directionalLight);
 
     // Ground plane
-    const groundGeometry = new THREE.PlaneGeometry(100, 100);
+    const spread = 1000;
+    const groundGeometry = new THREE.PlaneGeometry(spread, spread);
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
     // Add trees
-    addRandomTrees(scene, 100);
+    addRandomTrees(scene, 1000, spread);
+
 
     // Add characters
-    addRandomCharacters(scene, 10);
+    const characters = [];
+    addRandomCharacters(scene, 100, spread);
+    scene.traverse((child) => {
+      if (child.type === "Group" && child.children.length === 2) {
+        characters.push(child);
+      }
+    });
 
     // Camera setup
-    camera.position.set(0, 100, 0);
-    camera.lookAt(0, 0, 0);
+    const character = characters[0]; // Choose the first character
+    camera.position.copy(character.position);
+    camera.position.y += 15; // Set camera height above the character
+    camera.lookAt(character.position.x, character.position.y + 5, character.position.z); // Look at the character's head
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.screenSpacePanning = true; // Enable panning in screen space
     controls.minDistance = 50;
     controls.maxDistance = 200;
     controls.minPolarAngle = Math.PI / 4;
     controls.maxPolarAngle = Math.PI / 2;
+    controls.target.copy(character.position);
     controls.update();
 
     const animate = () => {
@@ -152,6 +174,17 @@ const App = () => {
 };
 
 export default App;
+
+body {
+  margin: 0;
+  overflow: hidden;
+}
+
+.container {
+  width: 100%;
+  height: 100vh;
+  position: absolute;
+}
 
 body {
   margin: 0;

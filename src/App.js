@@ -1,6 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { Water } from "three/examples/jsm/objects/Water";
+import { TextureLoader } from "three";
+import { Howl } from "howler";
 import "./App.css";
 
 const createLowPolyTree = () => {
@@ -72,13 +75,32 @@ const addRandomTrees = (scene, count) => {
 };
 
 const addRandomCharacters = (scene, count) => {
+  let leader;
   for (let i = 0; i < count; i++) {
     const character = createLowPolyCharacter();
     character.position.set(Math.random() * 100 - 50, 0, Math.random() * 100 - 50);
     character.rotation.y = Math.random() * Math.PI * 2;
     scene.add(character);
+    leader = leader || character;
   }
+  return leader;
 };
+
+const createBuilding = () => {
+  const buildingGeometry = new THREE.BoxGeometry(10, 20, 10);
+  const buildingMaterial = new THREE.MeshLambertMaterial({ color: 0x808080 });
+  const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+  return building;
+};
+
+const createRock = () => {
+  const rockGeometry = new THREE.IcosahedronGeometry(Math.random() * 3 + 1);
+  const rockMaterial = new THREE.MeshLambertMaterial({ color: 0x808080 });
+  const rock = new THREE.Mesh(rockGeometry, rockMaterial);
+  return rock;
+};
+
+
 
 
 const App = () => {
@@ -90,8 +112,12 @@ const App = () => {
     scene.background = new THREE.Color(0x87ceeb);
 
     // Camera
+    const fov = 60;
     const aspect = window.innerWidth / window.innerHeight;
-    const camera = new THREE.OrthographicCamera(-50 * aspect, 50 * aspect, 50, -50, 1, 2000);
+    const near = 1;
+    const far = 1000;
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(75, 50, 0);
 
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -105,32 +131,147 @@ const App = () => {
     scene.add(directionalLight);
 
     // Ground plane
-    const groundGeometry = new THREE.PlaneGeometry(100, 100);
+    const spread = 1000;
+    const groundGeometry = new THREE.PlaneGeometry(spread, spread);
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
-    // Add trees
-    addRandomTrees(scene, 100);
+    // Add trees, characters, sun, moon, clouds, buildings, and rocks
+    addRandomTrees(scene, 1000, spread);
+    const leader = addRandomCharacters(scene, 100, spread);
+    scene.add(createLowPolySun());
+    scene.add(createLowPolyMoon());
+    scene.add(createLowPolyCloud());
 
-    // Add characters
-    addRandomCharacters(scene, 10);
+    const addRandomBuildings = (scene, count, spread) => {
+      for (let i = 0; i < count; i++) {
+        const building = createBuilding();
+        building.position.set(
+          Math.random() * spread - spread / 2,
+          10, // Half the building height
+          Math.random() * spread - spread / 2
+        );
+        scene.add(building);
+      }
+    };
+    addRandomBuildings(scene, 20, spread);
+
+    const addRandomRocks = (scene, count, spread) => {
+      for (let i = 0; i < count; i++) {
+        const rock = createRock();
+        rock.position.set(
+          Math.random() * spread - spread / 2,
+          rock.geometry.parameters.radius,
+          Math.random() * spread - spread / 2
+        );
+        scene.add(rock);
+      }
+    };
+
+    addRandomRocks(scene, 50, spread);
 
     // Camera setup
-    camera.position.set(0, 100, 0);
-    camera.lookAt(0, 0, 0);
+    const character = leader;
+    camera.position.copy(character.position);
+    camera.position.y += 15; // Set camera height above the character
+    camera.lookAt(character.position.x, character.position.y + 5, character.position.z); // Look at the character's head
+    camera.position.x += 10; // Move camera behind the character
+    camera.position.z += 10;  // Move camera behind the character
+
+
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.screenSpacePanning = true; // Enable panning in screen space
-    controls.minDistance = 50;
-    controls.maxDistance = 200;
-    controls.minPolarAngle = Math.PI / 4;
-    controls.maxPolarAngle = Math.PI / 2;
+    controls.target.set(0, 0, 0);
+
+    // controls.enableDamping = true; // Animates the camera movement
+    // controls.screenSpacePanning = true; // Enable panning in screen space
+    // controls.minDistance = 50;
+    // controls.maxDistance = 200;
+    // controls.minPolarAngle = Math.PI / 4;
+    // controls.maxPolarAngle = Math.PI / 2;
+    // controls.target.copy(character.position);
     controls.update();
+
+    const skyboxMaterial = new THREE.MeshBasicMaterial({
+      color: 0x87ceeb,
+      side: THREE.BackSide,
+    });
+    // Skybox
+    const createSkybox = () => {
+      const skyboxSize = 50000;
+      const skyboxGeometry = new THREE.BoxGeometry(skyboxSize, skyboxSize, skyboxSize);
+      const skybox = new THREE.Mesh(skyboxGeometry, skyboxMaterial);
+      return skybox;
+    };
+    scene.add(createSkybox());
+
+    // Water
+    const createWater = () => {
+      const waterGeometry = new THREE.PlaneGeometry(1000, 1000);
+      const water = new Water(waterGeometry, {
+        textureWidth: 512,
+        textureHeight: 512,
+        waterNormals: new TextureLoader().load("textures/water.jpg", (texture) => {
+          texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+          texture.repeat.set(4, 4);
+        }),
+        sunDirection: directionalLight.position.clone().normalize(),
+        sunColor: 0xffffff,
+        waterColor: 0x001e0f,
+        distortionScale: 3.7,
+        fog: scene.fog !== undefined,
+      });
+
+      water.rotation.x = -Math.PI / 2;
+      water.position.y = 5; // Adjust this value to set the water level
+      return water;
+    };
+
+    scene.add(createWater());
+
+    // Ambient sound
+    const ambientSound = new Howl({
+      src: ["path/to/ambient_sound.mp3"],
+      autoplay: true,
+      loop: true,
+      volume: 0.5,
+    });
+
+    let dayTime = 0;
+
+    const updateDayNightCycle = () => {
+      dayTime += 0.001;
+      const intensity = (Math.sin(dayTime * 2 * Math.PI) + 1) / 2;
+      directionalLight.intensity = intensity;
+      ambientLight.intensity = 0.5 * (1 - intensity);
+      skyboxMaterial.color.setHSL(0.6, 1, 0.6 + 0.4 * intensity);
+    };    
 
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
+
+      // Animate trees
+      scene.traverse((child) => {
+
+        if (child.type === "Group" && child.children.length === 2) {
+          // Add your tree animation logic here
+        }
+      });
+
+      // Animate characters
+      scene.traverse((child) => {
+        if (child.type === "Group" && child.children.length === 2) {
+          // Add your character animation logic here
+        }
+      });
+
+      // Day-night cycle
+      dayTime += 0.001;
+      if (dayTime >= 1) dayTime = 0;
+      updateDayNightCycle(scene, dayTime);
+
       renderer.render(scene, camera);
     };
 
