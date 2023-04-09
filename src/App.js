@@ -1,102 +1,61 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { PointerLockControls } from "three/examples/jsm/controls/PointerLockControls";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import "./App.css";
 
-function App() {
+const App = () => {
+  const containerRef = useRef();
+
   useEffect(() => {
+    const container = containerRef.current;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-
     const renderer = new THREE.WebGLRenderer();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    const container = document.getElementById("container");
     container.appendChild(renderer.domElement);
 
-    // Create materials for each face of the room
-    const materials = [
-      new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.BackSide }), // Left wall (red)
-      new THREE.MeshBasicMaterial({ color: 0x00ff00, side: THREE.BackSide }), // Right wall (green)
-      new THREE.MeshBasicMaterial({ color: 0xffff00, side: THREE.BackSide }), // Ceiling (yellow)
-      new THREE.MeshBasicMaterial({ color: 0xff00ff, side: THREE.BackSide }), // Floor (magenta)
-      new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.BackSide }), // Back wall (cyan)
-      new THREE.MeshBasicMaterial({ color: 0xffa500, side: THREE.BackSide })  // Front wall (orange)
+    // Room
+    const roomSize = 10;
+    const roomMaterial = [
+      new THREE.MeshBasicMaterial({ color: 0xff0000 }), // -X
+      new THREE.MeshBasicMaterial({ color: 0x00ff00 }), // +X
+      new THREE.MeshBasicMaterial({ color: 0x0000ff }), // -Y
+      new THREE.MeshBasicMaterial({ color: 0xffff00 }), // +Y
+      new THREE.MeshBasicMaterial({ color: 0xff00ff }), // -Z
+      new THREE.MeshBasicMaterial({ color: 0x00ffff }), // +Z
     ];
-
-    // Create the room with multiple materials, making the room 10x larger
-    const roomSize = 2000;
-    const roomGeometry = new THREE.BoxGeometry(roomSize, roomSize, roomSize);
-    const room = new THREE.Mesh(roomGeometry, materials);
+    const room = new THREE.Mesh(new THREE.BoxGeometry(roomSize, roomSize, roomSize), roomMaterial);
+    room.geometry.scale(1, 1, -1); // Invert the room
     scene.add(room);
 
-    // Set up Raycaster for collision detection
-    const raycaster = new THREE.Raycaster();
-    const direction = new THREE.Vector3();
+    // Objects in the room
+    const objectMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const objectGeometry = new THREE.SphereGeometry(0.5);
+    const object = new THREE.Mesh(objectGeometry, objectMaterial);
+    object.position.set(2, 0, 2);
+    scene.add(object);
 
-    const isColliding = (direction) => {
-      raycaster.set(camera.position, direction.normalize());
-      const intersects = raycaster.intersectObject(room);
-      return intersects.length > 0 && intersects[0].distance < 1;
-    };
+    // First-person perspective camera
+    camera.position.set(0, 0, 0);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 0, -1);
+    controls.enablePan = false;
+    controls.enableZoom = false;
+    controls.enableDamping = true;
+    controls.minPolarAngle = Math.PI / 6;
+    controls.maxPolarAngle = 5 * Math.PI / 6;
+    controls.update();
 
-    camera.position.z = 250;
-    camera.position.y = 0;
-
-    const controls = new PointerLockControls(camera, renderer.domElement);
-    document.addEventListener("click", () => {
-      controls.lock();
-    });
-
-    const onKeyDown = (event) => {
-      let move = false;
-      direction.set(0, 0, 0);
-      switch (event.code) {
-        case "KeyW":
-          direction.z = -1;
-          move = true;
-          break;
-        case "KeyS":
-          direction.z = 1;
-          move = true;
-          break;
-        case "KeyA":
-          direction.x = -1;
-          move = true;
-          break;
-        case "KeyD":
-          direction.x = 1;
-          move = true;
-          break;
-      }
-
-      if (move && !isColliding(direction)) {
-        controls.moveForward(direction.z * 0.1);
-        controls.moveRight(direction.x * 0.1);
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-
-    const animate = function () {
+    const animate = () => {
       requestAnimationFrame(animate);
+      controls.update();
       renderer.render(scene, camera);
     };
 
     animate();
-
-    // Add click event listener
-    container.addEventListener("click", function () {
-      if (document.pointerLockElement !== container) {
-        container.requestPointerLock();
-      }
-    });
-
-    return () => {
-      container.removeChild(renderer.domElement);
-      document.removeEventListener("keydown", onKeyDown);
-    };
   }, []);
 
-  return <div id="container" style={{ width: "100vw", height: "100vh", position: "absolute", top: 0, left: 0 }} />;
-}
+  return <div ref={containerRef} className="container"></div>;
+};
 
 export default App;
