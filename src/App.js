@@ -21,8 +21,6 @@ const updateSky = (sky, elapsedTime) => {
   const daytimeProgress = Math.sin((timeOfDay / 24) * Math.PI * 2);
 
   const skyColor = mixColor(skyColorNight, skyColorDay, (daytimeProgress + 1) / 2);
-  sky.material.uniforms['up'].value = new THREE.Vector3(0, 1, 0);
-  sky.material.uniforms['sunPosition'].value.copy(sun);
 
   const skyUniforms = sky.material.uniforms;
   skyUniforms["turbidity"].value = 10;
@@ -31,8 +29,18 @@ const updateSky = (sky, elapsedTime) => {
   skyUniforms["mieDirectionalG"].value = 0.8;
 
   sky.material.uniforms['up'].value = new THREE.Vector3(0, 1, 0);
-  sky.material.uniforms['sunPosition'].value.copy(sun);
 
+  // Sun position
+  const sunDistance = 1000000; // Increase this value to move the sun farther away
+  const sunHeight = Math.max(daytimeProgress * 2000, 100); // Sun height above the ground
+
+  const sunAngle = (elapsedTime / 24) * Math.PI * 2;
+  const sunX = Math.cos(sunAngle) * sunDistance;
+  const sunZ = Math.sin(sunAngle) * sunDistance;
+
+  const sun = new THREE.Vector3(sunX, sunHeight, sunZ);
+  sky.material.uniforms['sunPosition'].value.copy(sun);
+  
   sky.material.color = skyColor;
 };
 
