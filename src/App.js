@@ -6,6 +6,36 @@ import { Water } from 'three/examples/jsm/objects/Water';
 import { Sky } from 'three/examples/jsm/objects/Sky';
 import { TextureLoader } from 'three';
 
+const mixColor = (color1, color2, amount) => {
+  const resultColor = color1.clone();
+  resultColor.lerp(color2, amount);
+  return resultColor;
+};
+
+const skyColorDay = new THREE.Color(0x87ceeb);
+const skyColorNight = new THREE.Color(0x2c3e50);
+const sun = new THREE.Vector3();
+
+const updateSky = (sky, elapsedTime) => {
+  const timeOfDay = elapsedTime % 24;
+  const daytimeProgress = Math.sin((timeOfDay / 24) * Math.PI * 2);
+
+  const skyColor = mixColor(skyColorNight, skyColorDay, (daytimeProgress + 1) / 2);
+  sky.material.uniforms['up'].value = new THREE.Vector3(0, 1, 0);
+  sky.material.uniforms['sunPosition'].value.copy(sun);
+
+  const skyUniforms = sky.material.uniforms;
+  skyUniforms["turbidity"].value = 10;
+  skyUniforms["rayleigh"].value = 2;
+  skyUniforms["mieCoefficient"].value = 0.005;
+  skyUniforms["mieDirectionalG"].value = 0.8;
+
+  sky.material.uniforms['up'].value = new THREE.Vector3(0, 1, 0);
+  sky.material.uniforms['sunPosition'].value.copy(sun);
+
+  sky.material.color = skyColor;
+};
+
 const createSky = () => {
   const sky = new Sky();
   sky.scale.setScalar(450000);
@@ -17,7 +47,6 @@ const createSky = () => {
   uniforms['mieDirectionalG'].value = 0.8;
   uniforms['up'].value = new THREE.Vector3(0, 1, 0);
 
-  const sun = new THREE.Vector3();
   const theta = Math.PI * (0.49 - 0.5);
   const phi = 2 * Math.PI * (0.25 - 0.5);
   sun.x = Math.cos(phi);
@@ -25,10 +54,20 @@ const createSky = () => {
   sun.z = Math.sin(phi) * Math.cos(theta);
   uniforms['sunPosition'].value.copy(sun);
 
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  directionalLight.position.copy(sun);
+  directionalLight.castShadow = true;
+  directionalLight.shadow.camera.left = -200;
+  directionalLight.shadow.camera.right = 200;
+  directionalLight.shadow.camera.top = 200;
+  directionalLight.shadow.camera.bottom = -200;
+  directionalLight.shadow.camera.near = 0.5;
+  directionalLight.shadow.camera.far = 1000;
+  directionalLight.shadow.mapSize.set(2048, 2048);
+  sky.name = "sky";
+  sky.directionalLight = directionalLight;
   return sky;
 };
-
-
 
 class Agent extends THREE.Object3D {
   constructor() {
@@ -152,16 +191,16 @@ const createRock = () => {
   return rock;
 };
 
-
-
-
 const App = () => {
   const containerRef = useRef();
 
   useEffect(() => {
     const container = containerRef.current;
     const scene = new THREE.Scene();
-    scene.add(createSky());
+    const sky = createSky();
+    scene.add(sky);
+    scene.add(sky.directionalLight); // Add the directional light from the sky
+
 
     const lights = [];
 
@@ -346,32 +385,34 @@ const App = () => {
 
       if (timeAccumulator > 0.02) {
         // Animation and control updates
+        updateSky(scene.getObjectByName("sky"), currTime);
+
         scene.traverse((child) => {
           if (child.isMesh && child.material && child.material.color) {
             child.geometry.computeBoundingBox();
-        
+
             // Update trees
             if (child.geometry.type === 'CylinderGeometry' && child.material.color.getHexString() === '8b4513') {
               updateTreeGrowth(child, currTime);
             }
-        
+
             // Update clouds
             if (child.geometry.type === 'BoxGeometry' && child.material.color.getHexString() === 'ffffff') {
               updateClouds(child, currTime);
             }
-        
+
             // Update rocks
             if (child.geometry.type === 'IcosahedronGeometry') {
               updateRocks(child, currTime);
             }
           }
-        
+
           // Update characters
           if (child instanceof Agent) {
             updateCharacters(child, currTime);
           }
         });
-        
+
 
         // Update day-night cycle
         updateDayNightCycle();
