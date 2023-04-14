@@ -183,7 +183,7 @@ const App = () => {
     scene.add(directionalLight);
 
     // Ground plane
-    const spread = 2000;
+    const spread = 200;
     const groundGeometry = new THREE.PlaneGeometry(spread, spread);
     const groundMaterial = new THREE.MeshPhongMaterial({ color: 0x228b22 });
     const ground = new THREE.Mesh(groundGeometry, groundMaterial);
@@ -194,7 +194,7 @@ const App = () => {
 
     // Water
     const createWater = () => {
-      const waterGeometry = new THREE.PlaneGeometry(1000, 1000);
+      const waterGeometry = new THREE.PlaneGeometry(10, 10);
       const water = new Water(waterGeometry, {
         textureWidth: 512,
         textureHeight: 512,
@@ -218,7 +218,7 @@ const App = () => {
 
 
     // Add trees, characters, sun, moon, clouds, buildings, and rocks
-    addRandomTrees(scene, 1000, spread);
+    addRandomTrees(scene, 100, spread);
     const leader = addRandomCharacters(scene, 100, spread);
     scene.add(createLowPolySun());
     scene.add(createLowPolyMoon());
