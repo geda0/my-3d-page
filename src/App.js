@@ -12,8 +12,8 @@ const mixColor = (color1, color2, amount) => {
   return resultColor;
 };
 
-const skyColorDay = new THREE.Color(0x87ceeb);
-const skyColorNight = new THREE.Color(0x2c3e50);
+const skyColorDay = new THREE.Color(0x6CA6CD);
+const skyColorNight = new THREE.Color(0x00408C);
 const sun = new THREE.Vector3();
 
 const updateSky = (sky, elapsedTime) => {
@@ -31,7 +31,7 @@ const updateSky = (sky, elapsedTime) => {
   sky.material.uniforms['up'].value = new THREE.Vector3(0, 1, 0);
 
   // Sun position
-  const sunDistance = 1000000; // Increase this value to move the sun farther away
+  const sunDistance = 10000000000; // Increase this value to move the sun farther away
   const sunHeight = Math.max(daytimeProgress * 2000, 100); // Sun height above the ground
 
   const sunAngle = (elapsedTime / 24) * Math.PI * 2;
