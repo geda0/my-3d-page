@@ -3,10 +3,32 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import "./App.css";
 import { Water } from 'three/examples/jsm/objects/Water';
+import { Sky } from 'three/examples/jsm/objects/Sky';
 import { TextureLoader } from 'three';
 
-const raycaster = new THREE.Raycaster();
-const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const createSky = () => {
+  const sky = new Sky();
+  sky.scale.setScalar(450000);
+
+  const uniforms = sky.material.uniforms;
+  uniforms['turbidity'].value = 10;
+  uniforms['rayleigh'].value = 2;
+  uniforms['mieCoefficient'].value = 0.005;
+  uniforms['mieDirectionalG'].value = 0.8;
+  uniforms['up'].value = new THREE.Vector3(0, 1, 0);
+
+  const sun = new THREE.Vector3();
+  const theta = Math.PI * (0.49 - 0.5);
+  const phi = 2 * Math.PI * (0.25 - 0.5);
+  sun.x = Math.cos(phi);
+  sun.y = Math.sin(phi) * Math.sin(theta);
+  sun.z = Math.sin(phi) * Math.cos(theta);
+  uniforms['sunPosition'].value.copy(sun);
+
+  return sky;
+};
+
+
 
 class Agent extends THREE.Object3D {
   constructor() {
@@ -139,7 +161,7 @@ const App = () => {
   useEffect(() => {
     const container = containerRef.current;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
+    scene.add(createSky());
 
     const lights = [];
 
@@ -271,7 +293,7 @@ const App = () => {
     controls.maxDistance = 200;
     controls.minPolarAngle = Math.PI / 4;
     controls.maxPolarAngle = Math.PI / 2;
-    
+
     const clock = new THREE.Clock();
     let prevTime = 0;
     let timeAccumulator = 0;
@@ -293,6 +315,27 @@ const App = () => {
       camera.lookAt(character.position.clone().add(cameraTarget));
     };
 
+    const updateTreeGrowth = (tree, elapsedTime) => {
+      tree.scale.y = 1 + 0.5 * Math.sin(elapsedTime * 0.5);
+    };
+
+    const updateClouds = (cloud, elapsedTime) => {
+      cloud.position.x += Math.sin(elapsedTime * 0.05) * 0.2;
+      cloud.position.z += Math.cos(elapsedTime * 0.05) * 0.2;
+    };
+
+    const updateRocks = (rock, elapsedTime) => {
+      rock.rotation.x += 0.01;
+      rock.rotation.y += 0.01;
+    };
+
+    const updateCharacters = (character, elapsedTime) => {
+      character.rotation.y += Math.random() * 0.1 - 0.05;
+      character.position.x += Math.sin(character.rotation.y) * 0.05;
+      character.position.z += Math.cos(character.rotation.y) * 0.05;
+    };
+
+
     const animate = () => {
       requestAnimationFrame(animate);
 
@@ -304,16 +347,34 @@ const App = () => {
       if (timeAccumulator > 0.02) {
         // Animation and control updates
         scene.traverse((child) => {
-          if (child.isMesh) {
+          if (child.isMesh && child.material && child.material.color) {
             child.geometry.computeBoundingBox();
+        
+            // Update trees
+            if (child.geometry.type === 'CylinderGeometry' && child.material.color.getHexString() === '8b4513') {
+              updateTreeGrowth(child, currTime);
+            }
+        
+            // Update clouds
+            if (child.geometry.type === 'BoxGeometry' && child.material.color.getHexString() === 'ffffff') {
+              updateClouds(child, currTime);
+            }
+        
+            // Update rocks
+            if (child.geometry.type === 'IcosahedronGeometry') {
+              updateRocks(child, currTime);
+            }
+          }
+        
+          // Update characters
+          if (child instanceof Agent) {
+            updateCharacters(child, currTime);
           }
         });
+        
 
         // Update day-night cycle
         updateDayNightCycle();
-
-        // Update camera position
-        // updateCameraPosition(camera, leader);
 
         timeAccumulator = 0;
       }
