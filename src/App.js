@@ -134,14 +134,6 @@ const createLowPolyCharacter = () => {
   return agent;
 };
 
-const createLowPolySun = () => {
-  const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xffdd00 });
-  const sunGeometry = new THREE.SphereGeometry(2, 16, 16);
-  const sun = new THREE.Mesh(sunGeometry, sunMaterial);
-  sun.position.set(100, 100, 100);
-  return sun;
-};
-
 const createLowPolyMoon = () => {
   const moonMaterial = new THREE.MeshLambertMaterial({ color: 0xbfbfbf });
   const moonGeometry = new THREE.SphereGeometry(1, 16, 16);
@@ -289,7 +281,6 @@ const App = () => {
     // Add trees, characters, sun, moon, clouds, buildings, and rocks
     addRandomTrees(scene, 100, spread);
     const leader = addRandomCharacters(scene, 100, spread);
-    scene.add(createLowPolySun());
     scene.add(createLowPolyMoon());
     scene.add(createLowPolyCloud());
 
