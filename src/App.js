@@ -31,7 +31,7 @@ const updateSky = (sky, elapsedTime) => {
   sky.material.uniforms['up'].value = new THREE.Vector3(0, 1, 0);
 
   // Sun position
-  const sunDistance = 10000000000; // Increase this value to move the sun farther away
+  const sunDistance = 5000; // Increase this value to move the sun farther away
   const sunHeight = Math.max(daytimeProgress * 2000, 100); // Sun height above the ground
 
   const sunAngle = (elapsedTime / 24) * Math.PI * 2;
@@ -46,7 +46,7 @@ const updateSky = (sky, elapsedTime) => {
 
 const createSky = () => {
   const sky = new Sky();
-  sky.scale.setScalar(450000);
+  sky.scale.setScalar(10000);
 
   const uniforms = sky.material.uniforms;
   uniforms['turbidity'].value = 10;
