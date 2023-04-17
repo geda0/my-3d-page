@@ -279,8 +279,8 @@ const App = () => {
 
 
     // Add trees, characters, sun, moon, clouds, buildings, and rocks
-    addRandomTrees(scene, 100, spread);
-    const leader = addRandomCharacters(scene, 100, spread);
+    addRandomTrees(scene, 71, spread);
+    const leader = addRandomCharacters(scene, 101, spread);
     scene.add(createLowPolyMoon());
     scene.add(createLowPolyCloud());
 
@@ -295,7 +295,7 @@ const App = () => {
         scene.add(building);
       }
     };
-    addRandomBuildings(scene, 20, spread);
+    addRandomBuildings(scene, 13, spread);
 
     const addRandomRocks = (scene, count, spread) => {
       for (let i = 0; i < count; i++) {
@@ -309,7 +309,7 @@ const App = () => {
       }
     };
 
-    addRandomRocks(scene, 50, spread);
+    addRandomRocks(scene, 33, spread);
 
     // Camera setup
     const character = leader;
@@ -345,14 +345,14 @@ const App = () => {
       ambientLight.intensity = 0.5 * (1 - intensity);
     };
 
-    const updateCameraPosition = (camera, character) => {
+    const updateCameraPosition = (camera, leader) => {
       const cameraOffset = new THREE.Vector3(0, 10, 20);
-      const cameraTarget = new THREE.Vector3(0, 5, 0);
-      const newPosition = character.position.clone().add(cameraOffset);
-      camera.position.lerp(newPosition, 0.1);
-      camera.lookAt(character.position.clone().add(cameraTarget));
+      const cameraTargetOffset = new THREE.Vector3(0, 5, 0);
+      const newPosition = leader.position.clone().add(cameraOffset);
+      camera.position.copy(newPosition);
+      camera.lookAt(leader.position.clone().add(cameraTargetOffset));
     };
-
+    
     const updateTreeGrowth = (tree, elapsedTime) => {
       tree.scale.y = 1 + 0.5 * Math.sin(elapsedTime * 0.5);
     };
@@ -424,7 +424,6 @@ const App = () => {
     };
 
     animate();
-
     return () => {
       container.removeChild(renderer.domElement);
     };
